@@ -1,65 +1,123 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
 
 export default function Home() {
+  const [events, setEvents] = useState<any[]>([]);
+  const [rules, setRules] = useState<any[]>([]);
+  const [shownIds, setShownIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    loadRules();
+    const interval = setInterval(fetchEvents, 2000);
+    return () => clearInterval(interval);
+  }, [shownIds]);
+
+  const loadRules = async () => {
+    const res = await fetch("/api/rules");
+    const data = await res.json();
+    setRules(data);
+  };
+
+  const fetchEvents = async () => {
+    const res = await fetch("/api/events");
+    const data = await res.json();
+
+    setEvents(data);
+
+    data.forEach((e: any) => {
+      if (!shownIds.includes(e.id)) {
+        showOverlay(e);
+        setShownIds(prev => [...prev, e.id]);
+      }
+    });
+  };
+
+  const showOverlay = (e: any) => {
+    const div = document.createElement("div");
+
+    div.innerHTML = `
+      <b>${e.title}</b><br/>
+      ${e.message}
+      <br/>
+      <button>Cerrar</button>
+    `;
+
+    Object.assign(div.style, {
+      position: "fixed",
+      top: "20px",
+      right: "20px",
+      background: "#c62828",
+      color: "white",
+      padding: "15px",
+      borderRadius: "10px",
+      zIndex: "9999"
+    });
+
+    div.querySelector("button")?.addEventListener("click", () => {
+      div.remove();
+    });
+
+    document.body.appendChild(div);
+  };
+
+  const saveRules = async () => {
+    await fetch("/api/rules", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(rules)
+    });
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div style={{ padding: 20 }}>
+      <h1>Notificaciones</h1>
+
+      <h2>Reglas</h2>
+
+      {rules.map((r, i) => (
+        <div key={i}>
+          <input
+            value={r.match}
+            onChange={(e) => {
+              const newRules = [...rules];
+              newRules[i].match = e.target.value;
+              setRules(newRules);
+            }}
+          />
+          <input
+            type="checkbox"
+            checked={r.enabled}
+            onChange={(e) => {
+              const newRules = [...rules];
+              newRules[i].enabled = e.target.checked;
+              setRules(newRules);
+            }}
+          />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      ))}
+
+      <button onClick={() =>
+        setRules([...rules, {
+          field: "title",
+          match: "",
+          enabled: true
+        }])
+      }>
+        + Agregar regla
+      </button>
+
+      <br /><br />
+      <button onClick={saveRules}>Guardar</button>
+
+      <h2>Eventos</h2>
+      <ul>
+        {events.map(e => (
+          <li key={e.id}>{e.title} - {e.message}</li>
+        ))}
+      </ul>
     </div>
   );
 }
