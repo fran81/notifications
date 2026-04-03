@@ -1,6 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { redis } from "@/lib/redis";
 
+type Rule = {
+  field: string;
+  match: string;
+  enabled: boolean;
+  deviceId?: string;
+};
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -8,7 +15,7 @@ export default async function handler(
 
   if (req.method === "POST") {
 
-    const rules = (await redis.get("rules")) || [];
+    const rules = ((await redis.get("rules")) as Rule[]) || [];
 
     const event = {
       id: Date.now(),
@@ -17,13 +24,13 @@ export default async function handler(
 
     const matches =
       rules.length === 0 ||
-      rules.some((rule: any) => {
+      rules.some((rule) => {
         if (!rule.enabled) return false;
 
         if (rule.deviceId && rule.deviceId !== event.deviceId)
           return false;
 
-        const value = event[rule.field] || "";
+        const value = (event as any)[rule.field] || "";
         return value.includes(rule.match);
       });
 
@@ -43,5 +50,5 @@ export default async function handler(
     );
   }
 
-  res.status(405).end();
+  return res.status(405).end();
 }
