@@ -24,7 +24,7 @@ export default async function handler(
 
     const matches =
       rules.length === 0 ||
-      rules.some((rule) => {
+      rules.every((rule) => {
         if (!rule.enabled) return false;
 
         if (rule.deviceId && rule.deviceId !== event.deviceId)

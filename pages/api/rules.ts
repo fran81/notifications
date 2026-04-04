@@ -7,7 +7,7 @@ export default async function handler(
 ) {
 
   if (req.method === "GET") {
-    const rules = ((await redis.get("rules")) as any[]) || [];
+    const rules = (await redis.get("rules")) || [];
     return res.status(200).json(rules);
   }
 
