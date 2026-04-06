@@ -4,8 +4,12 @@ import { redis } from "@/lib/redis";
 type Rule = {
   field: string;
   match: string;
+};
+
+type RuleGroup = {
+  name: string;
   enabled: boolean;
-  deviceId?: string;
+  rules: Rule[];
 };
 
 export default async function handler(
@@ -13,25 +17,39 @@ export default async function handler(
   res: NextApiResponse
 ) {
 
+  // =========================
+  // POST → recibir eventos
+  // =========================
   if (req.method === "POST") {
 
-    const rules = ((await redis.get("rules")) as Rule[]) || [];
+    const rawRules = await redis.get("rules");
+    const groups: RuleGroup[] = Array.isArray(rawRules) ? rawRules : [];
 
     const event = {
       id: Date.now(),
       ...req.body,
     };
 
+    // 🔥 LÓGICA:
+    // - OR entre grupos
+    // - AND dentro del grupo
     const matches =
-      rules.length === 0 ||
-      rules.every((rule) => {
-        if (!rule.enabled) return false;
+      groups.length === 0 ||
+      groups.some((group) => {
+        if (!group.enabled) return false;
 
-        if (rule.deviceId && rule.deviceId !== event.deviceId)
-          return false;
+        return group.rules.every((rule) => {
 
-        const value = (event as any)[rule.field] || "";
-        return value.includes(rule.match);
+          function getValue(obj: any, path: string) {
+            return path.split(".").reduce((acc, part) => acc?.[part], obj);
+          }
+
+          const value = getValue(event, rule.field);
+
+          if (!value) return false;
+
+          return String(value).includes(rule.match);
+        });
       });
 
     if (matches) {
@@ -42,7 +60,11 @@ export default async function handler(
     return res.status(200).json({ ok: true });
   }
 
+  // =========================
+  // GET → obtener eventos
+  // =========================
   if (req.method === "GET") {
+
     const events = await redis.lrange("events", 0, 50);
 
     return res.status(200).json(
