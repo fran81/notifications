@@ -12,74 +12,76 @@ type RuleGroup = {
   rules: Rule[];
 };
 
+// 🔥 helper seguro
+function safeParse(e: any) {
+  if (typeof e === "string") {
+    try {
+      return JSON.parse(e);
+    } catch {
+      return { raw: e };
+    }
+  }
+  return e;
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  try {
 
-  // =========================
-  // POST → recibir eventos
-  // =========================
-  if (req.method === "POST") {
+    // =========================
+    // POST
+    // =========================
+    if (req.method === "POST") {
 
-    const rawRules = await redis.get("rules");
-    const groups: RuleGroup[] = Array.isArray(rawRules) ? rawRules : [];
+      const rawRules = await redis.get("rules");
+      const groups: RuleGroup[] = Array.isArray(rawRules) ? rawRules : [];
 
-    const event = {
-      id: Date.now(),
-      ...req.body,
-    };
+      const event = {
+        id: Date.now(),
+        ...req.body,
+      };
 
-    // 🔥 LÓGICA:
-    // - OR entre grupos
-    // - AND dentro del grupo
-    const matches =
-      groups.length === 0 ||
-      groups.some((group) => {
-        if (!group.enabled) return false;
+      const matches =
+        groups.length === 0 ||
+        groups.some((group) => {
+          if (!group.enabled) return false;
 
-        return group.rules.every((rule) => {
-
-          function getValue(obj: any, path: string) {
-            return path.split(".").reduce((acc, part) => acc?.[part], obj);
-          }
-
-          const value = getValue(event, rule.field);
-
-          if (!value) return false;
-
-          return String(value).includes(rule.match);
+          return group.rules.every((rule) => {
+            const value = (event as any)[rule.field];
+            if (!value) return false;
+            return String(value).includes(rule.match);
+          });
         });
-      });
 
-    if (matches) {
-      await redis.lpush("events", JSON.stringify(event));
-      await redis.ltrim("events", 0, 100);
+      if (matches) {
+        await redis.lpush("events", JSON.stringify(event));
+        await redis.ltrim("events", 0, 100);
+      }
+
+      return res.status(200).json({ ok: true });
     }
 
-    return res.status(200).json({ ok: true });
+    // =========================
+    // GET
+    // =========================
+    if (req.method === "GET") {
+
+      const events = await redis.lrange("events", 0, 50);
+
+      const parsed = events.map((e) => safeParse(e));
+
+      return res.status(200).json(parsed);
+    }
+
+    return res.status(405).end();
+
+  } catch (err: any) {
+    console.error("ERROR API EVENTS:", err);
+
+    return res.status(500).json({
+      error: err.message,
+    });
   }
-
-  // =========================
-  // GET → obtener eventos
-  // =========================
-  if (req.method === "GET") {
-
-    const events = await redis.lrange("events", 0, 50);
-
-    return res.status(200).json(
-      events.map((e) => {
-        if (typeof e === "string") {
-          try {
-            return JSON.parse(e);
-          } catch {
-            return { raw: e };
-          }
-        }
-        return e;
-      })
-    );
-  }
-
-  return res.status(405).end();
 }
