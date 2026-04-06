@@ -68,7 +68,16 @@ export default async function handler(
     const events = await redis.lrange("events", 0, 50);
 
     return res.status(200).json(
-      events.map((e) => JSON.parse(e as string))
+      events.map((e) => {
+        if (typeof e === "string") {
+          try {
+            return JSON.parse(e);
+          } catch {
+            return { raw: e };
+          }
+        }
+        return e;
+      })
     );
   }
 
