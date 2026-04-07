@@ -60,6 +60,12 @@ export default async function handler(
         await redis.ltrim("events", 0, 100);
       }
 
+      console.log("EVENT TO SAVE:", event);
+      console.log("TYPE:", typeof event);
+      const serialized = JSON.stringify(event);
+      console.log("SERIALIZED:", serialized);
+      
+      
       return res.status(200).json({ ok: true });
     }
 
