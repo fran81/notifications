@@ -35,8 +35,26 @@ export default async function handler(
     // =========================
     if (req.method === "POST") {
 
-      const rawRules = await redis.get("rules");
-      const groups: RuleGroup[] = Array.isArray(rawRules) ? rawRules : [];
+      function safeParseRules(data: any): RuleGroup[] {
+      if (!data) return [];
+
+      if (typeof data === "string") {
+        try {
+          return JSON.parse(data);
+        } catch {
+          return [];
+        }
+      }
+
+      if (Array.isArray(data)) {
+        return data;
+      }
+
+      return [];
+    }
+
+    const rawRules = await redis.get("rules");
+    const groups = safeParseRules(rawRules);
 
       const event = {
         id: Date.now(),
