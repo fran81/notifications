@@ -92,11 +92,15 @@ export default async function handler(
     // =========================
     if (req.method === "GET") {
 
+      const since = Number(req.query.since || 0);
+
       const events = await redis.lrange("events", 0, 50);
 
       const parsed = events.map((e) => safeParse(e));
 
-      return res.status(200).json(parsed);
+      const filtered = parsed.filter((e: any) => e.id > since);
+
+      return res.status(200).json(filtered);
     }
 
     return res.status(405).end();

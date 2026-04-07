@@ -16,7 +16,7 @@ export default function Home() {
     const interval = setInterval(async () => {
 
       try {
-        const res = await fetch("/api/events");
+        const res = await fetch("/api/events?since=${lastId}");
         const data = await res.json();
 
         data.forEach((e: any) => {
@@ -31,9 +31,9 @@ export default function Home() {
             }
 
             // 📢 Banner persistente
-            setAlerts(prev => [e, ...prev]);
+            setAlerts(prev => [e, ...prev].slice(0, 20));
 
-            setLastId(e.id);
+            setLastId(prev => Math.max(prev, e.id));
           }
 
         });
