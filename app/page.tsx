@@ -3,121 +3,75 @@
 import { useEffect, useState } from "react";
 
 export default function Home() {
-  const [events, setEvents] = useState<any[]>([]);
-  const [rules, setRules] = useState<any[]>([]);
-  const [shownIds, setShownIds] = useState<number[]>([]);
+
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [lastId, setLastId] = useState(0);
 
   useEffect(() => {
-    loadRules();
-    const interval = setInterval(fetchEvents, 2000);
-    return () => clearInterval(interval);
-  }, [shownIds]);
 
-  const loadRules = async () => {
-    const res = await fetch("/api/rules");
-    const data = await res.json();
-    setRules(data);
-  };
+    if ("Notification" in window) {
+      Notification.requestPermission();
+    }
 
-  const fetchEvents = async () => {
-    const res = await fetch("/api/events");
-    const data = await res.json();
+    const interval = setInterval(async () => {
 
-    setEvents(data);
+      try {
+        const res = await fetch("/api/events");
+        const data = await res.json();
 
-    data.forEach((e: any) => {
-      if (!shownIds.includes(e.id)) {
-        showOverlay(e);
-        setShownIds(prev => [...prev, e.id]);
+        data.forEach((e: any) => {
+
+          if (e.id > lastId) {
+
+            // 🔔 Notificación sistema
+            if (Notification.permission === "granted") {
+              new Notification(e.title, {
+                body: e.message || "Nuevo evento",
+              });
+            }
+
+            // 📢 Banner persistente
+            setAlerts(prev => [e, ...prev]);
+
+            setLastId(e.id);
+          }
+
+        });
+
+      } catch (err) {
+        console.error("Error fetching events", err);
       }
-    });
-  };
 
-  const showOverlay = (e: any) => {
-    const div = document.createElement("div");
+    }, 3000);
 
-    div.innerHTML = `
-      <b>${e.title}</b><br/>
-      ${e.message}
-      <br/>
-      <button>Cerrar</button>
-    `;
+    return () => clearInterval(interval);
 
-    Object.assign(div.style, {
-      position: "fixed",
-      top: "20px",
-      right: "20px",
-      background: "#c62828",
-      color: "white",
-      padding: "15px",
-      borderRadius: "10px",
-      zIndex: "9999"
-    });
-
-    div.querySelector("button")?.addEventListener("click", () => {
-      div.remove();
-    });
-
-    document.body.appendChild(div);
-  };
-
-  const saveRules = async () => {
-    await fetch("/api/rules", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(rules)
-    });
-  };
+  }, [lastId]);
 
   return (
     <div style={{ padding: 20 }}>
+
       <h1>Notificaciones</h1>
 
-      <h2>Reglas</h2>
+      {alerts.map((a, i) => (
+        <div key={i} style={{
+          background: "red",
+          color: "white",
+          padding: 10,
+          marginBottom: 10
+        }}>
+          <b>{a.title}</b>
+          <br />
+          {a.message}
 
-      {rules.map((r, i) => (
-        <div key={i}>
-          <input
-            value={r.match}
-            onChange={(e) => {
-              const newRules = [...rules];
-              newRules[i].match = e.target.value;
-              setRules(newRules);
-            }}
-          />
-          <input
-            type="checkbox"
-            checked={r.enabled}
-            onChange={(e) => {
-              const newRules = [...rules];
-              newRules[i].enabled = e.target.checked;
-              setRules(newRules);
-            }}
-          />
+          <button onClick={() => {
+            setAlerts(alerts.filter((_, idx) => idx !== i));
+          }}>
+            Cerrar
+          </button>
         </div>
       ))}
 
-      <button onClick={() =>
-        setRules([...rules, {
-          field: "title",
-          match: "",
-          enabled: true
-        }])
-      }>
-        + Agregar regla
-      </button>
-
-      <br /><br />
-      <button onClick={saveRules}>Guardar</button>
-
-      <h2>Eventos</h2>
-      <ul>
-        {events.map(e => (
-          <li key={e.id}>{e.title} - {e.message}</li>
-        ))}
-      </ul>
     </div>
   );
 }
