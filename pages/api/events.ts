@@ -12,6 +12,10 @@ type RuleGroup = {
   rules: Rule[];
 };
 
+function getValue(obj: any, path: string) {
+  return path.split(".").reduce((acc, part) => acc?.[part], obj);
+}
+
 // 🔥 helper seguro
 function safeParse(e: any) {
   if (typeof e === "string") {
@@ -67,7 +71,7 @@ export default async function handler(
           if (!group.enabled) return false;
 
           return group.rules.every((rule) => {
-            const value = (event as any)[rule.field];
+            const value = getValue(event, rule.field);
             if (!value) return false;
             return String(value).includes(rule.match);
           });
