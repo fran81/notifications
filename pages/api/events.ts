@@ -88,28 +88,37 @@ export default async function handler(
         ...req.body,
       };
 
-      const matches =
-        groups.length === 0 ||
-        groups.some((group) => {
-          if (!group.enabled) return false;
+      console.log("EVENT:", JSON.stringify(event, null, 2));
+      console.log("RULES:", JSON.stringify(rules, null, 2));
 
-          return group.rules.every((rule) => {
-            const value = getValue(event, rule.field);
-            if (!value) return false;
-            return String(value).includes(rule.match);
-          });
-        });
+      console.log("EVENT:", JSON.stringify(event, null, 2));
+console.log("RULES:", JSON.stringify(rules, null, 2));
 
-      if (matches) {
-        await redis.lpush("events", JSON.stringify(event));
-        await redis.ltrim("events", 0, 100);
-      }
+const matches = rules.length === 0 || rules.some((group: any) => {
+  if (!group.enabled) return false;
 
-      console.log("EVENT TO SAVE:", event);
-      console.log("TYPE:", typeof event);
-      const serialized = JSON.stringify(event);
-      console.log("SERIALIZED:", serialized);
-      
+  console.log("Checking group:", group.name);
+
+  const result = group.rules.every((rule: any) => {
+
+    const value = getValue(event, rule.field);
+
+    console.log("---- RULE ----");
+    console.log("FIELD:", rule.field);
+    console.log("EXPECTED:", rule.match);
+    console.log("VALUE:", value);
+
+    if (!value) return false;
+
+    return String(value).includes(rule.match);
+  });
+
+  console.log("GROUP RESULT:", result);
+
+  return result;
+});
+
+console.log("FINAL MATCH:", matches);
       
       return res.status(200).json({ ok: true });
     }
