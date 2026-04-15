@@ -13,7 +13,30 @@ type RuleGroup = {
 };
 
 function getValue(obj: any, path: string) {
-  return path.split(".").reduce((acc, part) => acc?.[part], obj);
+  const parts = path.split(".");
+  let current = obj;
+
+  for (let i = 0; i < parts.length; i++) {
+    if (!current) return undefined;
+
+    const part = parts[i];
+
+    // 🔥 intentar acceso normal
+    if (current[part] !== undefined) {
+      current = current[part];
+      continue;
+    }
+
+    // 🔥 intentar clave con punto (caso Gmail)
+    const remainingPath = parts.slice(i).join(".");
+    if (current[remainingPath] !== undefined) {
+      return current[remainingPath];
+    }
+
+    return undefined;
+  }
+
+  return current;
 }
 
 // 🔥 helper seguro
